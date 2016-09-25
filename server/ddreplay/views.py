@@ -36,6 +36,7 @@ json.JSONEncoder.default = lambda self,obj: (obj.isoformat() if isinstance(obj, 
 import datetime
 from time import mktime
 from collections import OrderedDict
+import zipstream
 
 class CustomEncoder(json.JSONEncoder):
 
@@ -121,7 +122,7 @@ def get_draft(DID):
 
 add_to_draft_args = {
     'unpack' : fields.Boolean(required=False, missing=False),
-    'overwrite' : fields.Boolean(required=False, missing=False),
+#    'overwrite' : fields.Boolean(required=False, missing=False),
 }
 
 @app.route("/api/v1.0/drafts/<DID>", methods=['PUT'])
@@ -216,8 +217,18 @@ def publish_draft(DID, author, message):
 ##### API (datasets + versions)                                            #####
 ################################################################################
 
-@app.route("/api/v1.0/datasets/<PID>/", methods=['GET'])
-def get_current_version(PID):
+@app.route("/api/v1.0/datasets/")
+def get_dataset_list():
+    """ generate a JSON record with a list of all registered datasets """
+
+    repo = get_repo()
+
+    result = list(repo.list_all_datasets())
+
+    return json_response({'datasets' : result}, 200)
+
+@app.route("/api/v1.0/datasets/<PID>/record", methods=['GET'])
+def get_current_version_record(PID):
     """ get the current (i.e. latest) version version from the dataset
         referenced by <PID>
     """
@@ -228,8 +239,24 @@ def get_current_version(PID):
 
     return json_response({'version' : version}, 200)
 
-@app.route("/api/v1.0/datasets/<PID>/versions/<VID>/")
-def get_version(PID, VID):
+@app.route("/api/v1.0/datasets/<PID>/", methods=['GET'])
+def get_current_version_data(PID):
+    """ get the current (i.e. latest) version version from the dataset
+        referenced by <PID>
+    """
+
+    repo = get_repo()
+
+    _, data_path = repo.lookup_current_version(PID, fetch_data=True)
+
+    pkg = _build_package(data_path)
+
+    response = Response(pkg, mimetype='application/zip')
+    response.headers['Content-Disposition'] = 'attachment; filename={}'.format(PID + '.zip')
+    return response
+
+@app.route("/api/v1.0/datasets/<PID>/versions/<VID>/record")
+def get_version_record(PID, VID):
     """ generate a JSON record for the version identified by PID + VID """
 
     repo = get_repo()
@@ -239,8 +266,18 @@ def get_version(PID, VID):
     if(version is None):
         abort(404)
 
-    #return send_file('../test_repo/drafts/data/04f2391a/foo/bar/data_00.tar.gz')
+    return json_response({'version' : version}, 200)
 
+@app.route("/api/v1.0/datasets/<PID>/versions/<VID>/")
+def get_version_data(PID, VID):
+    """ generate a JSON record for the version identified by PID + VID """
+
+    repo = get_repo()
+
+    version = repo.lookup_version(PID, VID)
+
+    if(version is None):
+        abort(404)
 
     return json_response({'version' : version}, 200)
 
@@ -268,4 +305,26 @@ def create_draft_from_dataset(PID):
     draft = repo.create_draft_from_dataset(PID)
 
     return json_response({'draft': draft}, 200)
+
+
+################################################################################
+##### Utility functions                                                    #####
+################################################################################
+def _build_package(data_path):
+    """ This function collects all files contained in directory ``data_path``
+    and packs them into a zipstream object that can be streamed back to the
+    client.
+    """
+
+    import os
+
+    pkg = zipstream.ZipFile(mode='w')
+
+    for root, dir, files in os.walk(data_path):
+        for f in files:
+            file_path = os.path.join(root, f)
+            file_alias = os.path.relpath(file_path, data_path)
+            pkg.write(file_path, file_alias)
+
+    return pkg
 

@@ -254,17 +254,15 @@ class Repository:
         #return self.version_serializer.dump(new_version)
         return new_version
     
-    def lookup_current_version(self, PID, from_cache=True):
+    def lookup_current_version(self, PID, fetch_data=False, from_cache=True):
 
         # XXX dataset cache?
 
         dataset = self.backend.load_dataset_record(PID)
 
-        print('xx', dataset)
-
         VID = dataset['current']
 
-        current_version = self.backend.load_version_record(PID, VID)
+        current_version = self.backend.load_version_record(PID, VID, fetch_data)
 
         return current_version
 
@@ -299,3 +297,8 @@ class Repository:
         #else:
         #    #return self.version_list_serializer.dump({})
         #    return {}
+
+    def list_all_datasets(self):
+
+        for d in self.backend.load_dataset_records():
+            yield d

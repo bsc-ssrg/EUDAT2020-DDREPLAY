@@ -1,1 +1,0 @@
-{"id": "04f2391a", "PID": null, "parent_version": null, "created_at": "2016-09-09T15:39:13.428812+00:00", "contents": [{"name": "foo", "path": "foo", "type": "directory", "children": [{"name": "bar", "path": "foo/bar", "type": "directory", "children": [{"name": "data_00.tar.gz", "path": "foo/bar/data_00.tar.gz", "type": "file", "children": []}]}]}]}

@@ -25,6 +25,7 @@
 #                                                                         #
 ###########################################################################
 
+import os
 from flask import Flask
 from ddreplay.config import configure_app
 from storage.repository import Repository
@@ -41,6 +42,13 @@ configure_app(app)
 
 # create the repository
 if 'DD_REPOSITORY_BASE' in app.config:
+
+    # we need an absolute path for the repository
+    if not os.path.isabs(app.config['DD_REPOSITORY_BASE']):
+        relpath = app.config['DD_REPOSITORY_BASE']
+        abspath = os.path.join(os.getcwd(), relpath)
+        app.config['DD_REPOSITORY_BASE'] = abspath
+
     repo = Repository(backend='filesystem', base_location=app.config['DD_REPOSITORY_BASE'])
 else:
     repo = None

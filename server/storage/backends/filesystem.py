@@ -327,7 +327,7 @@ class Filesystem:
         with open(dst_file, 'w') as outfile:
             json.dump(data_out.data, outfile)
 
-    def load_version_record(self, pPID, VID):
+    def load_version_record(self, pPID, VID, fetch_data=False):
         """ This function searches for the version record referenced by ``pPID``
         and ``VID``, loads it from the backend, and returns it.
         """
@@ -336,7 +336,12 @@ class Filesystem:
 
         record = self._read_version_from_file(src_file)
 
-        return record
+        data_path = None
+
+        if fetch_data:
+            data_path = self._get_version_data_path(pPID, VID)
+
+        return record, data_path
 
     def save_version_record(self, pPID, record):
         """ This function stores the version record ``record`` in the backend,
@@ -436,7 +441,7 @@ class Filesystem:
         payload.save(tmp_filename)
 
         return tmp_filename
-    
+
     def _unpack_file(self, filename, destination, overwrite):
 
         if overwrite:
