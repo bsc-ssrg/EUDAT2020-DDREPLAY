@@ -192,7 +192,7 @@ class Filesystem:
         """
         shutil.rmtree(self.base_location)
 
-    def load_draft_record(self, DID):
+    def load_draft_record(self, DID, fetch_data=False):
         """This function loads the JSON record for draft ``DID`` from the 
         filesystem.
         """
@@ -204,7 +204,12 @@ class Filesystem:
 
         draft = self._read_draft_from_file(src_file)
 
-        return draft
+        data_path = None
+
+        if fetch_data:
+            data_path = self._get_draft_data_path(DID)
+
+        return draft, data_path
 
     def save_draft_record(self, draft):
         """This function generates a JSON representation from the draft 

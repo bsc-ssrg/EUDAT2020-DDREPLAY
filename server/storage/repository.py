@@ -145,7 +145,7 @@ class Repository:
 
         return result
 
-    def lookup_draft(self, DID):
+    def lookup_draft(self, DID, fetch_data=False):
         """This version searches for the draft identified by ``DID`` and 
         returns its JSON record. The draft is initially searched for in the
         repository's cache and, if not found there, the request is forwarded
@@ -156,7 +156,9 @@ class Repository:
 ##            if draft['id'] == DID:
 ##                return draft
 
-        return self.backend.load_draft_record(DID)
+        draft, data_path = self.backend.load_draft_record(DID, fetch_data)
+
+        return draft, data_path
 
 
     def list_all_drafts(self, refresh_cache=False):

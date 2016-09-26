@@ -106,8 +106,8 @@ def create_empty_draft():
 
     return json_response({"draft" : new_draft}, 201)
 
-@app.route("/api/v1.0/drafts/<DID>")
-def get_draft(DID):
+@app.route("/api/v1.0/drafts/<DID>/record")
+def get_draft_record(DID):
     """ generate a JSON record of the draft with DID """
 
     repo = get_repo()
@@ -119,6 +119,19 @@ def get_draft(DID):
 
     return json_response({"draft" : draft}, 200)
 
+@app.route("/api/v1.0/drafts/<DID>")
+def get_draft_data(DID):
+    """ download the associated data of the draft with DID """
+
+    repo = get_repo()
+
+    _, data_path = repo.lookup_draft(DID, fetch_data=True)
+
+    pkg = _build_package(data_path)
+
+    response = Response(pkg, mimetype='application/zip')
+    response.headers['Content-Disposition'] = 'attachment; filename={}'.format(DID + '.zip')
+    return response
 
 add_to_draft_args = {
     'unpack' : fields.Boolean(required=False, missing=False),
