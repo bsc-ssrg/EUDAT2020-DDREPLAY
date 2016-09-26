@@ -81,7 +81,9 @@ def destination_conflict(error):
 ##### API (drafts)                                                         #####
 ################################################################################
 
-@app.route("/api/v1.0/drafts/")
+__api_version__ = "v1.1"
+
+@app.route("/api/" + __api_version__ + "/drafts/")
 def get_draft_list():
     """ generate a JSON record with a list of all registered drafts """
 
@@ -91,7 +93,7 @@ def get_draft_list():
 
     return json_response({'drafts' : result}, 200)
 
-@app.route("/api/v1.0/drafts/", methods=['POST'])
+@app.route("/api/" + __api_version__ + "/drafts/", methods=['POST'])
 def create_empty_draft():
     """ create a new (empty) draft """
 
@@ -106,7 +108,7 @@ def create_empty_draft():
 
     return json_response({"draft" : new_draft}, 201)
 
-@app.route("/api/v1.0/drafts/<DID>/record")
+@app.route("/api/" + __api_version__ + "/drafts/<DID>/record")
 def get_draft_record(DID):
     """ generate a JSON record of the draft with DID """
 
@@ -119,7 +121,7 @@ def get_draft_record(DID):
 
     return json_response({"draft" : draft}, 200)
 
-@app.route("/api/v1.0/drafts/<DID>")
+@app.route("/api/" + __api_version__ + "/drafts/<DID>")
 def get_draft_data(DID):
     """ download the associated data of the draft with DID """
 
@@ -138,8 +140,8 @@ add_to_draft_args = {
 #    'overwrite' : fields.Boolean(required=False, missing=False),
 }
 
-@app.route("/api/v1.0/drafts/<DID>", methods=['PUT'])
-@app.route("/api/v1.0/drafts/<DID>/<path:usr_path>", methods=['PUT'])
+@app.route("/api/" + __api_version__ + "/drafts/<DID>", methods=['PUT'])
+@app.route("/api/" + __api_version__ + "/drafts/<DID>/<path:usr_path>", methods=['PUT'])
 @use_kwargs(add_to_draft_args)
 def add_to_draft(DID, unpack, overwrite, usr_path=None):
     """ add data to an existing draft """
@@ -178,8 +180,8 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
 
     return json_response({'draft': result}, 200)
 
-@app.route("/api/v1.0/drafts/<DID>", methods=['DELETE'])
-@app.route("/api/v1.0/drafts/<DID>/<path:usr_path>", methods=['DELETE'])
+@app.route("/api/" + __api_version__ + "/drafts/<DID>", methods=['DELETE'])
+@app.route("/api/" + __api_version__ + "/drafts/<DID>/<path:usr_path>", methods=['DELETE'])
 def delete_draft(DID, usr_path=None):
     """ remove an existing draft """
 
@@ -199,7 +201,7 @@ publish_draft_args = {
     'message' : fields.String(required=True, missing=None),
 }
 
-@app.route("/api/v1.0/drafts/<DID>/publish", methods=['POST', 'GET']) #XXX remove GET
+@app.route("/api/" + __api_version__ + "/drafts/<DID>/publish", methods=['POST', 'GET']) #XXX remove GET
 @use_kwargs(publish_draft_args)
 def publish_draft(DID, author, message):
     """ create a new version from an existing draft """
@@ -230,7 +232,7 @@ def publish_draft(DID, author, message):
 ##### API (datasets + versions)                                            #####
 ################################################################################
 
-@app.route("/api/v1.0/datasets/")
+@app.route("/api/" + __api_version__ + "/datasets/")
 def get_dataset_list():
     """ generate a JSON record with a list of all registered datasets """
 
@@ -240,7 +242,7 @@ def get_dataset_list():
 
     return json_response({'datasets' : result}, 200)
 
-@app.route("/api/v1.0/datasets/<PID>/record", methods=['GET'])
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/record", methods=['GET'])
 def get_current_version_record(PID):
     """ get the current (i.e. latest) version version from the dataset
         referenced by <PID>
@@ -252,7 +254,7 @@ def get_current_version_record(PID):
 
     return json_response({'version' : version}, 200)
 
-@app.route("/api/v1.0/datasets/<PID>/", methods=['GET'])
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/", methods=['GET'])
 def get_current_version_data(PID):
     """ get the current (i.e. latest) version version from the dataset
         referenced by <PID>
@@ -268,7 +270,7 @@ def get_current_version_data(PID):
     response.headers['Content-Disposition'] = 'attachment; filename={}'.format(PID + '.zip')
     return response
 
-@app.route("/api/v1.0/datasets/<PID>/versions/<VID>/record")
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/versions/<VID>/record")
 def get_version_record(PID, VID):
     """ generate a JSON record for the version identified by PID + VID """
 
@@ -281,7 +283,7 @@ def get_version_record(PID, VID):
 
     return json_response({'version' : version}, 200)
 
-@app.route("/api/v1.0/datasets/<PID>/versions/<VID>/")
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/versions/<VID>/")
 def get_version_data(PID, VID):
     """ generate a JSON record for the version identified by PID + VID """
 
@@ -295,7 +297,7 @@ def get_version_data(PID, VID):
     response.headers['Content-Disposition'] = 'attachment; filename={}'.format(VID + '.zip')
     return response
 
-@app.route("/api/v1.0/datasets/<PID>/versions/")
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/versions/")
 def get_version_list(PID):
     """ generate a JSON record with a list of all registered versions for 
         the dataset identified by <PID>
@@ -308,7 +310,7 @@ def get_version_list(PID):
 
     return json_response({'versions' : result}, 200)
 
-@app.route("/api/v1.0/datasets/<PID>/", methods=['PUT'])
+@app.route("/api/" + __api_version__ + "/datasets/<PID>/", methods=['PUT'])
 def create_draft_from_dataset(PID):
     """ create a new draft based on the contents of the dataset referenced by
         <PID>
