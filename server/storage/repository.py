@@ -262,12 +262,12 @@ class Repository:
 
         VID = dataset['current']
 
-        current_version = self.backend.load_version_record(PID, VID, fetch_data)
+        current_version, data_path = self.backend.load_version_record(PID, VID, fetch_data)
 
-        return current_version
+        return current_version, data_path
 
 
-    def lookup_version(self, PID, VID, from_cache=True):
+    def lookup_version(self, PID, VID, fetch_data=False, from_cache=True):
 
         ### if len(self.cached_versions) == 0:
         ###     self._refresh_cached_versions()
@@ -278,9 +278,9 @@ class Repository:
         ###             return draft
 #       ###      return None
 #        else:
-        version = self.backend.load_version_record(PID, VID)
+        version, data_path = self.backend.load_version_record(PID, VID, fetch_data)
 
-        return version
+        return version, data_path
 
 
     def list_all_versions(self, PID, refresh_cache=False):

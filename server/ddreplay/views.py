@@ -274,12 +274,13 @@ def get_version_data(PID, VID):
 
     repo = get_repo()
 
-    version = repo.lookup_version(PID, VID)
+    _, data_path = repo.lookup_version(PID, VID, fetch_data=True)
 
-    if(version is None):
-        abort(404)
+    pkg = _build_package(data_path)
 
-    return json_response({'version' : version}, 200)
+    response = Response(pkg, mimetype='application/zip')
+    response.headers['Content-Disposition'] = 'attachment; filename={}'.format(VID + '.zip')
+    return response
 
 @app.route("/api/v1.0/datasets/<PID>/versions/")
 def get_version_list(PID):
