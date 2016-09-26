@@ -200,7 +200,7 @@ class Filesystem:
         _, src_file = self._get_draft_metadata_paths(DID)
 
         if not os.path.exists(src_file):
-            return None
+            return None, None
 
         draft = self._read_draft_from_file(src_file)
 
@@ -450,7 +450,6 @@ class Filesystem:
     def _unpack_file(self, filename, destination, overwrite):
 
         if overwrite:
-            print('kk')
             # FIXME: for improved security check that no absolute paths or paths with
             # '..' exist in the compressed file 
             if(filename.endswith('tar.gz')):
@@ -466,41 +465,41 @@ class Filesystem:
                 tar.extractall(path=destination)
                 tar.close()
         else:
-            # FIXME: the following code is not working yet
-            # uncompress to a temporary directory so that we can check
-            # file by file if they can be copied or not
-            tmp_dir = tempfile.mkdtemp(dir=self.config['TMP_FOLDER'])
+            ### # FIXME: the following code is not working yet
+            ### # uncompress to a temporary directory so that we can check
+            ### # file by file if they can be copied or not
+            ### tmp_dir = tempfile.mkdtemp(dir=self.config['TMP_FOLDER'])
 
-            if filename.endswith('tar.gz'):
-                mode = "r:gz"
-            elif filename.endswith('tar.bz'):
-                mode = "r:bz"
-            elif filename.endswith('tar'):
-                mode = "r:"
+            ### if filename.endswith('tar.gz'):
+            ###     mode = "r:gz"
+            ### elif filename.endswith('tar.bz'):
+            ###     mode = "r:bz"
+            ### elif filename.endswith('tar'):
+            ###     mode = "r:"
 
-            if mode is not None:
-                with tarfile.open(filename, mode) as tar:
-                    tar.extractall(path=tmp_dir)
+            ### if mode is not None:
+            ###     with tarfile.open(filename, mode) as tar:
+            ###         tar.extractall(path=tmp_dir)
 
-            for root, dirs, files in os.walk(tmp_dir):
-                for filename in files:
-                    subdir = os.path.relpath(root, tmp_dir)
-                    relpath = os.path.join(subdir, filename)
+            ### for root, dirs, files in os.walk(tmp_dir):
+            ###     for filename in files:
+            ###         subdir = os.path.relpath(root, tmp_dir)
+            ###         relpath = os.path.join(subdir, filename)
 
-                    target_path = os.path.join(destination, relpath)
+            ###         target_path = os.path.join(destination, relpath)
 
-                    print(relpath, '->', target_path, os.path.exists(target_path))
+            ###         print(relpath, '->', target_path, os.path.exists(target_path))
 
-                    try:
-                        shutil.copy(relpath, target_path)
-                    except shutil.Error as e:
-                        print(e)
-                        conflicts.append(relpath)
+            ###         try:
+            ###             shutil.copy(relpath, target_path)
+            ###         except shutil.Error as e:
+            ###             print(e)
+            ###             conflicts.append(relpath)
 
-                    print(relpath)
+            ###         print(relpath)
 
 
-            os.rmdir(tmp_dir)
+            ### os.rmdir(tmp_dir)
             pass
 
     @staticmethod

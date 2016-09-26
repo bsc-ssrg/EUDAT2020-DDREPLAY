@@ -114,7 +114,7 @@ def get_draft_record(DID):
 
     repo = get_repo()
 
-    draft = repo.lookup_draft(DID)
+    draft,_ = repo.lookup_draft(DID)
 
     if(draft is None):
         abort(404)
@@ -129,7 +129,7 @@ def get_draft_data(DID):
 
     draft, data_path = repo.lookup_draft(DID, fetch_data=True)
 
-    if(version is None):
+    if(draft is None):
         abort(404)
 
     pkg = _build_package(data_path)
@@ -140,7 +140,7 @@ def get_draft_data(DID):
 
 add_to_draft_args = {
     'unpack' : fields.Boolean(required=False, missing=False),
-#    'overwrite' : fields.Boolean(required=False, missing=False),
+    'overwrite' : fields.Boolean(required=False, missing=False),
 }
 
 @app.route("/api/" + __api_version__ + "/drafts/<DID>", methods=['PUT'])
@@ -153,7 +153,7 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
 
     repo = get_repo()
 
-    draft = repo.lookup_draft(DID)
+    draft,_ = repo.lookup_draft(DID)
 
     if(draft is None):
         app.logger.debug("DID: %s not found", DID)
@@ -216,7 +216,7 @@ def publish_draft(DID, author, message):
 
     repo = get_repo()
 
-    draft = repo.lookup_draft(DID)
+    draft,_ = repo.lookup_draft(DID)
 
     if(draft is None):
         abort(404)
@@ -253,7 +253,7 @@ def get_current_version_record(PID):
 
     repo = get_repo()
 
-    version = repo.lookup_current_version(PID)
+    version,_ = repo.lookup_current_version(PID)
 
     return json_response({'version' : version}, 200)
 
@@ -282,7 +282,7 @@ def get_version_record(PID, VID):
 
     repo = get_repo()
 
-    version = repo.lookup_version(PID, VID)
+    version,_ = repo.lookup_version(PID, VID)
 
     if(version is None):
         abort(404)
