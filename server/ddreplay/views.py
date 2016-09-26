@@ -127,7 +127,10 @@ def get_draft_data(DID):
 
     repo = get_repo()
 
-    _, data_path = repo.lookup_draft(DID, fetch_data=True)
+    draft, data_path = repo.lookup_draft(DID, fetch_data=True)
+
+    if(version is None):
+        abort(404)
 
     pkg = _build_package(data_path)
 
@@ -262,7 +265,10 @@ def get_current_version_data(PID):
 
     repo = get_repo()
 
-    _, data_path = repo.lookup_current_version(PID, fetch_data=True)
+    version, data_path = repo.lookup_current_version(PID, fetch_data=True)
+
+    if(version is None):
+        abort(404)
 
     pkg = _build_package(data_path)
 
@@ -289,7 +295,10 @@ def get_version_data(PID, VID):
 
     repo = get_repo()
 
-    _, data_path = repo.lookup_version(PID, VID, fetch_data=True)
+    version, data_path = repo.lookup_version(PID, VID, fetch_data=True)
+
+    if(version is None):
+        abort(404)
 
     pkg = _build_package(data_path)
 
