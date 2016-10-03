@@ -26,133 +26,60 @@
 #                                                                         #
 ###########################################################################
 
-#import rabin as librp
 import cmd
 import signal
 import sys
 import glob
-
-import random
+import _pickle
 import os
-from array import array
 
-window_size = 32
-min_block_size = 2**14
-avg_block_size = 2**15
-max_block_size = 2**16
-buf_size = 512*1024
+from session import Session, SessionError, MissingRemoteError, DuplicateRemoteError, MissingFileError
 
-#TARGET = '../test_data/data_00.tar.gz' 
-#TARGET = './bar.bin' 
-TARGET = 'file1'
-
-#librp.set_min_block_size(2**14)
-#librp.set_average_block_size(2**15)
-#librp.set_max_block_size(2**16)
-
-def run():
-    import struct
-    import itertools
-
-    r = librp.Rabin()
-
-    blocks = []
-
-    for t in librp.get_file_fingerprints(TARGET):
-        #blocks.extend([t[0], t[1], t[2]])
-        blocks.append(t)
-
-    import _pickle
-
-    with open('result.bin', 'wb') as outfile:
-        _pickle.dump(blocks, outfile)
-
-    with open('result.bin', 'rb') as infile:
-        rblocks = _pickle.load(infile)
-
-
-    for e1,e2 in zip(blocks, rblocks):
-        print(e1, e2)
-        assert e1 == e2
-
-def test_my_code(benchmark):
-    result = benchmark(run)
-
-class SessionError(Exception):
-    """ Base class for exceptions in this module """
-    pass
-
-class MissingRemoteError(SessionError):
-    pass
-
-class DuplicateRemoteError(SessionError):
-    pass
-
-class MissingFileError(SessionError):
-    pass
-
-class Session:
-
-    def __init__(self):
-        self.staged_files = set()
-        self.root_dir = os.getcwd()
-        self.remote_repositories = dict()
-
-    def get_root_dir(self):
-        return self.root_dir
-
-    def get_staged_files(self):
-        return self.staged_files
-
-    def set_root_dir(self, dirpath):
-        self.root_dir = dirpath
-
-    def get_remote_repositories(self):
-        for k,v in self.remote_repositories.items():
-            yield k, v
-
-    def add_remote_repository(self, name, url):
-
-        if name in self.remote_repositories:
-            raise DuplicateRemoteError
-
-        self.remote_repositories[name] = url
-
-    def remove_remote_repository(self, name):
-
-        if name not in self.remote_repositories:
-            raise MissingRemoteError
-
-        del self.remote_repositories[name]
-
-    def rename_remote_repository(self, old, new):
-
-        if old not in self.remote_repositories:
-            raise MissingRemoteError
-
-        if new in self.remote_repositories:
-            raise DuplicateRemoteError
-
-        self.remote_repositories[new] = self.remote_repositories.pop(old)
-
-    def add_file(self, path):
-        self.staged_files.add(path)
-
-    def remove_file(self, path):
-
-        if path not in self.staged_files:
-            raise MissingFileError
-
-        self.staged_files.remove(path)
-
-    def rm_all(self):
-        self.staged_files.clear()
-
-    def save(self):
-        pass
-
-    def load(self):
-        pass
+# import random
+# import os
+# from array import array
+# 
+# window_size = 32
+# min_block_size = 2**14
+# avg_block_size = 2**15
+# max_block_size = 2**16
+# buf_size = 512*1024
+# 
+# #TARGET = '../test_data/data_00.tar.gz' 
+# #TARGET = './bar.bin' 
+# TARGET = 'file1'
+# 
+# #librp.set_min_block_size(2**14)
+# #librp.set_average_block_size(2**15)
+# #librp.set_max_block_size(2**16)
+# 
+# def run():
+#     import struct
+#     import itertools
+# 
+#     r = librp.Rabin()
+# 
+#     blocks = []
+# 
+#     for t in librp.get_file_fingerprints(TARGET):
+#         #blocks.extend([t[0], t[1], t[2]])
+#         blocks.append(t)
+# 
+#     import _pickle
+# 
+#     with open('result.bin', 'wb') as outfile:
+#         _pickle.dump(blocks, outfile)
+# 
+#     with open('result.bin', 'rb') as infile:
+#         rblocks = _pickle.load(infile)
+# 
+# 
+#     for e1,e2 in zip(blocks, rblocks):
+#         print(e1, e2)
+#         assert e1 == e2
+# 
+# def test_my_code(benchmark):
+#     result = benchmark(run)
 
 class DatasetUploaderShell(cmd.Cmd):
 
@@ -306,12 +233,13 @@ class DatasetUploaderShell(cmd.Cmd):
             arg = self.session.get_root_dir()
         else:
             try:
+                arg = os.path.abspath(arg)
                 os.chdir(arg)
             except (FileNotFoundError, NotADirectoryError):
                 print("error: Argument '" + arg + "' is either not a directory or does not exist\n")
                 return
 
-        print("Working directory changed to '" + os.path.abspath(arg) + "'\n")
+        print("Working directory changed to '" + arg + "'\n")
 
     def complete_cd(self, text, line, begidx, endidx):
         """ dir path autocompletion """
@@ -325,18 +253,18 @@ class DatasetUploaderShell(cmd.Cmd):
             print("error: Unrecognized argument '" + arg + "'\n")
             return
 
-        staged_files = self.session.get_staged_files()
-
-        if len(staged_files) == 0:
+        if self.session.get_staged_files_count() == 0:
             print("No files staged for upload:")
             print("  (use \"add <file>...\" to update what will be uploaded)\n")
             return
 
+        print("dataset root:", self.session.get_root_dir())
+
         print("Files staged for upload:")
         print("  (use \"rm <file>...\" to unstage a file)\n")
 
-        for f in sorted(staged_files):
-            print("\t" + f)
+        for path,_ in sorted(self.session.get_staged_files()):
+            print("\t" + path)
 
         print("")
 
@@ -464,6 +392,36 @@ class DatasetUploaderShell(cmd.Cmd):
         if arg != "":
             print("error: Unrecognized argument '" + arg + "'\n")
             return
+
+        print("Uploading changed files")
+
+        for usrpath, datafile in self.session.get_staged_files():
+            print("+", usrpath)
+            print(" fetch remote fingerprints...")
+            print(" compute differences with remote copy...")
+            datafile.compute_deltas(None)
+
+    def do_save(self, arg):
+        """ save a session for later use """
+
+        if arg == "":
+            print("error: Missing filename")
+            print("  (use \"save <filename>\" to save the current session to <filename>.session)")
+            return
+
+        self.session.save(arg)
+
+    def do_load(self, arg):
+        """ load a session from file """
+
+        if arg == "":
+            print("error: Missing filename")
+            print("  (use \"load <filename>\" to load the session stored in <filename>)")
+            return
+
+        self.session.load(arg)
+
+        self.do_cd(self.session.get_root_dir())
 
 
     def do_EOF(self, arg):
