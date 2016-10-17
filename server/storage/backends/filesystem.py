@@ -30,6 +30,8 @@ import json
 from collections import OrderedDict
 from marshmallow import Schema, fields, pre_load, post_dump
 from werkzeug.utils import secure_filename
+import rabin as librp
+import _pickle
 
 ################################################################################
 ##### schemas for serialization/deserialization                            #####
@@ -192,12 +194,12 @@ class Filesystem:
         """
         shutil.rmtree(self.base_location)
 
-    def load_draft_record(self, DID, fetch_data=False):
+    def load_draft_record(self, DID, fetch_data=False, fetch_fingerprints=False):
         """This function loads the JSON record for draft ``DID`` from the 
         filesystem.
         """
 
-        _, src_file = self._get_draft_metadata_paths(DID)
+        _, src_file, fps_path = self._get_draft_metadata_paths(DID)
 
         if not os.path.exists(src_file):
             return None, None
@@ -209,7 +211,7 @@ class Filesystem:
         if fetch_data:
             data_path = self._get_draft_data_path(DID)
 
-        return draft, data_path
+        return draft, data_path, fps_path
 
     def save_draft_record(self, draft):
         """This function generates a JSON representation from the draft 
@@ -222,7 +224,7 @@ class Filesystem:
 
         DID = draft['id']
 
-        _, dst_file = self._get_draft_metadata_paths(DID)
+        _, dst_file, _ = self._get_draft_metadata_paths(DID)
         data_dir = self._get_draft_data_path(DID)
 
         # if this is the first time that the record is saved we need to create
@@ -246,7 +248,7 @@ class Filesystem:
         """
 
         # remove metadata record
-        _, src_file = self._get_draft_metadata_paths(DID)
+        _, src_file, _ = self._get_draft_metadata_paths(DID)
         self._move_file(src_file, self.config['TRASH_FOLDER'])
         
         if remove_data:
@@ -289,6 +291,21 @@ class Filesystem:
             self._unpack_file(tmp_filename, dst_path, overwrite)
         else:
             self._move_file(tmp_filename, dst_path, overwrite)
+
+        new_fps = {}
+
+        # generate and store fingerprints for all files
+        # XXX this should be multithreaded
+        for root, dirs, files in os.walk(dst_path):
+            for filename in files:
+                filepath = os.path.join(root, filename)
+                new_fps[filepath] = librp.get_file_fingerprints(filepath)
+
+        old_fps = self._load_draft_fingerprints(DID)
+
+        merged_fps = self._merge_fingerprints(old_fps, new_fps)
+
+        self._save_draft_fingerprints(DID, merged_fps)
 
         # FIXME we could be smarter with this and update only what has changed
         contents = self._load_draft_contents(DID)
@@ -547,7 +564,9 @@ class Filesystem:
 
         record_path = os.path.join(dm_path, DID + ".json")
 
-        return dm_path, record_path
+        fps_path = os.path.join(dm_path, DID + ".fps")
+
+        return dm_path, record_path, fps_path
 
     def _get_draft_data_path(self, DID):
         """This function computes and returns the path for the base directory
@@ -568,7 +587,10 @@ class Filesystem:
             ├── data
             │   └── fe5c2d9f
             └── metadata
-                └── fe5c2d9f.json
+                ├── fe5c2d9f.json
+                └── fe5c2d9f.fps
+
+
         """
 
         os.makedirs(data_dir)
@@ -595,6 +617,40 @@ class Filesystem:
         contents = self._path_to_dict_v2(dst_path)
 
         return contents
+
+    def _load_draft_fingerprints(self, DID):
+
+        _, _, fps_path = self._get_draft_metadata_paths(DID)
+
+        fps = None
+
+        if not os.path.exists(fps_path):
+            return None
+
+        with open(fps_path, 'rb') as infile:
+            fps = _pickle.load(infile) 
+
+        return fps
+
+    def _save_draft_fingerprints(self, DID, fps):
+
+        _, _, fps_path = self._get_draft_metadata_paths(DID)
+
+        with open(fps_path, 'wb') as outfile:
+            _pickle.dump(fps, outfile) 
+
+    def _merge_fingerprints(self, old_fps, new_fps):
+
+        if old_fps is None:
+            merged_fps = dict()
+        else:
+            merged_fps = old_fps.copy()
+        merged_fps.update(new_fps)
+
+        return merged_fps
+
+
+
 
 
     ############################################################################

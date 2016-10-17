@@ -114,7 +114,7 @@ def get_draft_record(DID):
 
     repo = get_repo()
 
-    draft,_ = repo.lookup_draft(DID)
+    draft, _, _ = repo.lookup_draft(DID)
 
     if(draft is None):
         abort(404)
@@ -127,7 +127,7 @@ def get_draft_data(DID):
 
     repo = get_repo()
 
-    draft, data_path = repo.lookup_draft(DID, fetch_data=True)
+    draft, data_path, _ = repo.lookup_draft(DID, fetch_data=True)
 
     if(draft is None):
         abort(404)
@@ -153,7 +153,7 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
 
     repo = get_repo()
 
-    draft,_ = repo.lookup_draft(DID)
+    draft, _, _ = repo.lookup_draft(DID)
 
     if(draft is None):
         app.logger.debug("DID: %s not found", DID)
@@ -216,7 +216,7 @@ def publish_draft(DID, author, message):
 
     repo = get_repo()
 
-    draft,_ = repo.lookup_draft(DID)
+    draft, _, fps = repo.lookup_draft(DID)
 
     if(draft is None):
         abort(404)
@@ -229,6 +229,23 @@ def publish_draft(DID, author, message):
                    'created.')
     else:
         return json_response({'version' : version}, 201)
+
+
+@app.route("/api/" + __api_version__ + "/drafts/<DID>/fingerprints", methods=['GET'])
+def get_fingerprints(DID):
+    """ get the Rabin fingerprints from an existing file """
+
+    repo = get_repo()
+
+    draft, _, fps_path = repo.lookup_draft(DID, fetch_fingerprints=True)
+
+    if(draft is None):
+        abort(404)
+
+    response = Response(open(fps_path, "rb"), "application/octet-stream")
+    response.headers['Content-Disposition'] = 'attachment; filename={}'.format(DID + '.fps')
+
+    return response
 
 
 ################################################################################
