@@ -137,11 +137,11 @@ class Repository:
 
         return result
 
-    def add_file_to_draft(self, draft, filename, usr_path, unpack, overwrite):
+    def add_file_to_draft(self, draft, data_iterator, filename, usr_path, unpack, overwrite):
 
         DID = draft['id']
 
-        result = self.backend.add_file_to_draft(draft, filename, usr_path, unpack, overwrite)
+        result = self.backend.add_file_to_draft(draft, data_iterator, filename, usr_path, unpack, overwrite)
 
         return result
 

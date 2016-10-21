@@ -202,7 +202,7 @@ class Filesystem:
         _, src_file, fps_path = self._get_draft_metadata_paths(DID)
 
         if not os.path.exists(src_file):
-            return None, None
+            return None, None, None
 
         draft = self._read_draft_from_file(src_file)
 
@@ -268,17 +268,225 @@ class Filesystem:
             draft = self._read_draft_from_file(f)
             yield draft
 
-    def add_file_to_draft(self, draft, payload, usr_path, unpack, overwrite):
-        """This function adds the user-provided file ``payload`` to the draft
+    def _create_file(self, draft, stream_iterator, filename, usr_path):
+
+        # create a temporary directory to save the user-provided file until
+        # we determine its final location
+        tmp_dir = tempfile.mkdtemp(dir=self.config['TMP_FOLDER'])
+
+        payload = stream_iterator.get("file")
+        tmp_filename = self._mktemp(payload.filename, tmp_dir)
+        payload.save(tmp_filename)
+
+        # if the user provided a destination path we need to honor it
+        DID = draft['id']
+        base_path = self._get_draft_data_path(DID)
+        dst_path = base_path
+
+        if usr_path is not None:
+            dst_path = os.path.join(dst_path, usr_path)
+            if not os.path.exists(dst_path):
+                os.makedirs(dst_path)
+
+        # generate and store fingerprints for the new file
+        # XXX this should be multithreaded
+        new_fps = { filename: librp.get_file_fingerprints(tmp_filename) }
+
+        old_fps = self._load_draft_fingerprints(DID)
+
+        merged_fps = self._merge_fingerprints(old_fps, new_fps)
+
+        self._save_draft_fingerprints(DID, merged_fps)
+
+        # move the file to its final location
+        self._move_file(tmp_filename, dst_path)
+
+        # FIXME we could be smarter with this and update only what has changed
+        contents = self._load_draft_contents(DID)
+
+        # add the 'contents' to the draft descriptor and 
+        # update it in the repository
+        # NOTE: 'draft' is already an entry in cached_drafts
+        # and we can modify it in place
+        draft['contents'] = contents
+
+        # also update it in the backend
+        self.save_draft_record(draft)
+
+        # remove the temporary directory (which should now be empty)
+        os.rmdir(tmp_dir)
+
+        return draft
+
+    def _rebuild_file(self, out_filename, new_fps, old_fps, orig_filepath, new_parts):
+
+        # get size information from the provided new_parts
+        # (order is important)
+        patches = OrderedDict()
+        patches_size = 0
+
+        for p in new_parts:
+
+            fields = os.path.basename(p).split("_")
+
+            offset = int(fields[-2])
+            size = int(fields[-1])
+
+            sz = os.stat(p).st_size
+
+            assert(size == sz)
+
+            patches[offset] = (p, sz)
+
+            patches_size += sz
+
+        old_hashes = {hv:(offset,size) for offset,size,hv in old_fps}
+
+        # we need to build a map to see how to reconstruct it and from where
+        rebuild_map = []
+
+        expected_size = 0
+        for fps in new_fps:
+
+            new_offset = fps[0]
+            new_size = fps[1]
+            hv = fps[2]
+
+            expected_size += new_size
+
+            if hv in old_hashes:
+                old_offset, old_size = old_hashes[hv]
+                assert(old_size == new_size)
+
+                rebuild_map.append((new_offset, new_size, orig_filepath, old_offset, old_size))
+            else:
+                # find the appropriate part file that matches the required offset
+                if new_offset not in patches:
+                    assert(False)
+
+                part_file, part_size = patches[new_offset]
+
+                assert(new_size == part_size)
+
+                rebuild_map.append((new_offset, new_size, part_file, 0, part_size))
+
+        # check that the rebuild_map is consistent:
+        # first entry must have offset 0
+        assert(rebuild_map[0][0] == 0)
+        prev_offset = 0
+        prev_size = rebuild_map[0][1]
+        rebuild_size = prev_size
+
+        for entry in rebuild_map[1:]:
+            part_offset = entry[0]
+            part_size = entry[1]
+
+            assert(part_offset == (prev_offset + prev_size))
+
+            prev_offset = part_offset
+            prev_size = part_size
+            rebuild_size += prev_size
+
+        assert(expected_size == rebuild_size)
+
+        # everything looks ok: rebuild the file
+        with open(out_filename, "wb") as outfile:
+            for entry in rebuild_map:
+                part_file = entry[2]
+                part_offset = entry[3]
+                part_size = entry[4]
+                
+                with open(part_file, "rb") as infile:
+                    infile.seek(part_offset)
+                    outfile.write(infile.read(part_size))
+
+        # check that the output size matches what is expected
+        assert(os.stat(out_filename).st_size == expected_size)
+
+        # XXX: paranoia mode, check that the fingerprints for the generated file
+        # match those sent by the client. This can take a long time for
+        # really large files
+        assert(librp.get_file_fingerprints(out_filename) == new_fps)
+
+
+    def _replace_file(self, draft, stream_iterator, filename, usr_path):
+
+        # check that the file actually exists in the repository
+        DID = draft['id']
+        base_path = self._get_draft_data_path(DID)
+        dst_path = base_path
+
+        # if the user has provided a destination path we need to honor it
+        if usr_path is not None:
+            dst_path = os.path.join(dst_path, usr_path)
+
+        orig_filepath = os.path.join(dst_path, filename)
+
+        if not os.path.exists(orig_filepath):
+            # XXX: nothing to do. Raise exception?
+            return
+
+        # create a temporary directory to rebuild the file
+        tmp_dir = tempfile.mkdtemp(dir=self.config['TMP_FOLDER'])
+
+        # fetch the fingerprints sent by the client
+        stream = stream_iterator.get("fingerprints")
+
+        client_file_fps = _pickle.loads(stream.read())
+
+        # now fetch the parts sent by the client and save them to disk, since
+        # they may not fit into memory
+        new_parts = []
+        for part in stream_iterator.getlist("parts"):
+            tmp_filename = self._mktemp(part.filename, tmp_dir)
+            part.save(tmp_filename)
+            new_parts.append(tmp_filename)
+
+        _, _, fps_path = self.load_draft_record(draft['id'], False, True)
+
+        with open(fps_path, "rb") as infile:
+            server_fps = _pickle.load(infile)
+
+        stored_file_fps = server_fps[filename]
+
+        tmp_output = self._mktemp(filename + ".rebuilt", tmp_dir) 
+
+        self._rebuild_file(tmp_output, client_file_fps, stored_file_fps, orig_filepath, new_parts)
+
+        # TODO move the rebuilt file to its final location
+
+        # TODO update the fingerprints
+
+        # remove the temporary directory
+        shutil.rmtree(tmp_dir)
+
+        # TODO exceptions, return, etc
+        return {}
+
+    def add_file_to_draft(self, draft, stream_iterator, filename, usr_path, unpack, replace):
+        """This function adds the user-provided file ``stream`` to the draft
         identified by ``DID``.
         """
 
+        if not replace:
+            return self._create_file(draft, stream_iterator, filename, usr_path)
+
+        return self._replace_file(draft, stream_iterator, filename, usr_path)
+
+
+
+
         # save the user-provided file as a temporary file until we determine
         # its final location
-        tmp_filename = self._mktemp(payload)
+        tmp_filename = self._mktemp(filename)
 
+        with open(tmp_filename, "wb") as outfile:
+            for chunk in stream:
+                outfile.write(chunk)
+                
         DID = draft['id']
-        dst_path = self._get_draft_data_path(DID)
+        base_path = self._get_draft_data_path(DID)
+        dst_path = base_path
 
         # if the user has provided a destination path we need to honor it
         if usr_path is not None:
@@ -299,7 +507,10 @@ class Filesystem:
         for root, dirs, files in os.walk(dst_path):
             for filename in files:
                 filepath = os.path.join(root, filename)
-                new_fps[filepath] = librp.get_file_fingerprints(filepath)
+
+                relpath = os.path.relpath(filepath, base_path)
+
+                new_fps[relpath] = librp.get_file_fingerprints(filepath)
 
         old_fps = self._load_draft_fingerprints(DID)
 
@@ -457,10 +668,13 @@ class Filesystem:
 
         shutil.copytree(src_path, dst_path)
 
-    def _mktemp(self, payload):
-        sec_filename = secure_filename(payload.filename)
-        tmp_filename = os.path.join(self.config['TMP_FOLDER'], sec_filename)
-        payload.save(tmp_filename)
+    def _mktemp(self, filename, parent=None):
+
+        if parent is None:
+            parent = self.config['TMP_FOLDER']
+
+        sec_filename = secure_filename(filename)
+        tmp_filename = os.path.join(parent, sec_filename)
 
         return tmp_filename
 

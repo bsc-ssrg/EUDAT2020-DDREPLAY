@@ -37,6 +37,7 @@ import datetime
 from time import mktime
 from collections import OrderedDict
 import zipstream
+import re
 
 class CustomEncoder(json.JSONEncoder):
 
@@ -143,6 +144,21 @@ add_to_draft_args = {
     'overwrite' : fields.Boolean(required=False, missing=False),
 }
 
+def StreamingIterator(req_handle, buf_size=4096):
+    """ A simple streaming iterator that can be passed to the repository so
+    that files don't have to be fully read into memory before being stored in 
+    the backend.
+    """
+
+    while True:
+        chunk = req_handle.stream.read(buf_size)
+
+        if len(chunk) == 0:
+            break
+
+        yield chunk
+
+
 @app.route("/api/" + __api_version__ + "/drafts/<DID>", methods=['PUT'])
 @app.route("/api/" + __api_version__ + "/drafts/<DID>/<path:usr_path>", methods=['PUT'])
 @use_kwargs(add_to_draft_args)
@@ -159,27 +175,36 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
         app.logger.debug("DID: %s not found", DID)
         abort(404)
 
-    # check if the request has the 'payload' part
-    if('payload' not in request.files):
-        app.logger.debug("'payload' field not in request")
-        return redirect(request.url)
+    # with open("/home/amiranda/var/projects/eudat/dataset-replayer/server/footest.bin", "wb") as outfile:
+    #     while True:
 
-    payload = request.files['payload']
+    #         chunk = request.stream.read(8192)
 
-    # if the user does not select a file, the browser
-    # may also submit an empty part without the filename
-    if(payload.filename == ''):
-        app.logger.debug("'payload' field in request is empty")
-        return redirect(request.url)
+    #         if len(chunk) == 0:
+    #             break
 
-    # fetch the actual file contents from the request and save them
+    #         outfile.write(chunk)
+
+    #         #print(chunk)
+
+    # return json_response({}, 200)
+
+    # the client should have provided a desired filename using the 
+    # content-disposition HTTP header. If they didn't, 
+    filenames = re.findall("filename=(.+)", request.headers['content-disposition'])
+
+    if len(filenames) == 0 or len(filenames) != 1:
+        abort(400)
+
+    filename = filenames[0]
+
+    # stream the actual file contents from the request and save them
     # in the repository as temporary data
-    if(payload):
-        import shutil
-        try:
-            result = repo.add_file_to_draft(draft, payload, usr_path, unpack, overwrite)
-        except shutil.Error: #XXX use our own exceptions
-            abort(409, 'Destination path already exists')
+    import shutil
+    try:
+        result = repo.add_file_to_draft(draft, request.files, filename, usr_path, unpack, overwrite)
+    except shutil.Error: #XXX use our own exceptions
+        abort(409, 'Destination path already exists')
 
     return json_response({'draft': result}, 200)
 
@@ -242,7 +267,7 @@ def get_fingerprints(DID):
     if(draft is None):
         abort(404)
 
-    response = Response(open(fps_path, "rb"), "application/octet-stream")
+    response = Response(open(fps_path, "rb"))#, "application/octet-stream")
     response.headers['Content-Disposition'] = 'attachment; filename={}'.format(DID + '.fps')
 
     return response
