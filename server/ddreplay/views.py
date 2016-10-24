@@ -82,7 +82,7 @@ def destination_conflict(error):
 ##### API (drafts)                                                         #####
 ################################################################################
 
-__api_version__ = "v1.1"
+__api_version__ = "v1.2"
 
 @app.route("/api/" + __api_version__ + "/drafts/")
 def get_draft_list():
