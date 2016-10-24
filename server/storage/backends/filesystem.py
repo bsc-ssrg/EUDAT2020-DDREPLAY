@@ -406,7 +406,7 @@ class Filesystem:
         # XXX: paranoia mode, check that the fingerprints for the generated file
         # match those sent by the client. This can take a long time for
         # really large files
-        assert(librp.get_file_fingerprints(out_filename) == new_fps)
+        # assert(librp.get_file_fingerprints(out_filename) == new_fps)
 
 
     def _replace_file(self, draft, stream_iterator, filename, usr_path):
@@ -421,6 +421,7 @@ class Filesystem:
             dst_path = os.path.join(dst_path, usr_path)
 
         orig_filepath = os.path.join(dst_path, filename)
+        print(orig_filepath)
 
         if not os.path.exists(orig_filepath):
             # XXX: nothing to do. Raise exception?
@@ -453,15 +454,34 @@ class Filesystem:
 
         self._rebuild_file(tmp_output, client_file_fps, stored_file_fps, orig_filepath, new_parts)
 
-        # TODO move the rebuilt file to its final location
+        # move the rebuilt file to its final location
+        self._move_file(tmp_output, orig_filepath, overwrite=True)
 
-        # TODO update the fingerprints
+        # update the fingerprints
+
+        if usr_path is not None:
+            relpath = os.path.join(usr_path, filename)
+        else:
+            relpath = filename
+
+        # XXX: paranoia mode, we are taking the client sent FPS at face value.
+        # for security reasons, it would be better to recompute them, though
+        # this may take a long time
+        new_fps = { relpath: client_file_fps }
+        old_fps = self._load_draft_fingerprints(DID)
+
+        merged_fps = self._merge_fingerprints(old_fps, new_fps)
+
+        self._save_draft_fingerprints(DID, merged_fps)
+        
+        # NOTE: there is no need to update the 'contents' since the file
+        # has the same name and type
 
         # remove the temporary directory
         shutil.rmtree(tmp_dir)
 
         # TODO exceptions, return, etc
-        return {}
+        return draft
 
     def add_file_to_draft(self, draft, stream_iterator, filename, usr_path, unpack, replace):
         """This function adds the user-provided file ``stream`` to the draft
@@ -503,7 +523,7 @@ class Filesystem:
         new_fps = {}
 
         # generate and store fingerprints for all files
-        # XXX this should be multithreaded
+        # XXX this should probably be multithreaded
         for root, dirs, files in os.walk(dst_path):
             for filename in files:
                 filepath = os.path.join(root, filename)
