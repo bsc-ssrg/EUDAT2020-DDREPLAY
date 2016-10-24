@@ -37,8 +37,7 @@ from requests_toolbelt.streaming_iterator import StreamingIterator
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 import math
 
-
-__api_version__ = "v1.1"
+from api import __api_version__
 
 def digits(n):
     if n > 0:
