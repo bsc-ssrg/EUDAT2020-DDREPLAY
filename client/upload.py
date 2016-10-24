@@ -163,15 +163,10 @@ def remote_replace(repo_url, draft_id, filepath):
         print("Please check and try again.")
         sys.exit(1)
 
-    #fp = tempfile.TemporaryFile()
     stream = b'';
 
     for chunk in r.iter_content(4096):
-        #fp.write(chunk)
         stream += chunk
-
-    #fp.seek(0)
-    #server_fps = _pickle.load(fp)
 
     server_fps = _pickle.loads(stream)
 
@@ -191,32 +186,6 @@ def remote_replace(repo_url, draft_id, filepath):
 
 
     # step 4. upload differing fragments from the local file
-##     with open(filepath, "rb") as infile:
-## 
-##         print(os.fstat(infile.fileno()).st_size)
-## 
-##         for i,d in enumerate(deltas):
-##             offset = d[0]
-##             size = d[1]
-## 
-##             print("    Uploading deltas... (", i+1, " of ", len(deltas), ")", sep="")
-## 
-##             # the user-provided filename is passed using the
-##             # content-disposition HTTP header
-##             # the offset and size that apply to this the file fragment 
-##             # are defined using the Range HTTP header
-##             headers = {"Content-Type": "application/octet-stream", 
-##                         "content-disposition": "attachment; filename=" + filepath,
-##                         "Range": "bytes=" + str(offset) + "-" + str(offset + size)}
-## 
-##             # seek to appropriate position
-##             infile.seek(offset)
-## 
-##             # send fragment
-##             r = requests.put(req_url, headers=headers,
-##                     data=StreamingIterator(size, infile))
-
-
     fields = [
         ("fingerprints", ("filepath" + ".fps", metadata, "application/octet-stream"))
     ]
@@ -238,24 +207,16 @@ def remote_replace(repo_url, draft_id, filepath):
         fields = fields
     )
 
-    def calldd(monitor):
-        print(monitor)
-
     callback = create_callback(multipart_data)
 
-    monitor = MultipartEncoderMonitor(multipart_data, calldd)
+    monitor = MultipartEncoderMonitor(multipart_data, callback)
 
     # the user-provided filename is passed using the content-disposition
     # HTTP header
     headers = {"Content-Type": multipart_data.content_type,
                 "content-disposition": "attachment; filename=" + filepath}
 
-    #headers = {"Content-Type": "multipart/form-data", 
-    #        }#"content-disposition": "attachment; filename=" + filepath}
-
-    #print(multipart_data.to_string())
-
-    req_url = repo_url + "/drafts/" + draft_id + "?overwrite=true"
+    req_url = repo_url + "/drafts/" + draft_id + "?replace=true"
     r = requests.put(req_url, headers=headers, data=monitor)
 
     print('\nUpload finished! (Returned status {0} {1})'.format(
@@ -280,9 +241,6 @@ def remote_upload(repo_url, draft_id, filepath):
         callback = create_callback(multipart_data)
 
         monitor = MultipartEncoderMonitor(multipart_data, callback)
-
-        #monitor._read = monitor.read
-        #monitor.read = lambda size: monitor._read(1024*1024)
 
         # the user-provided filename is passed using the content-disposition
         # HTTP header

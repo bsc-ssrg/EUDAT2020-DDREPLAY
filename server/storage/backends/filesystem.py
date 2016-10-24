@@ -494,63 +494,63 @@ class Filesystem:
         return self._replace_file(draft, stream_iterator, filename, usr_path)
 
 
+        ### XXX OLD CODE. REMOVE AFTER TESTS
 
+        ### # save the user-provided file as a temporary file until we determine
+        ### # its final location
+        ### tmp_filename = self._mktemp(filename)
 
-        # save the user-provided file as a temporary file until we determine
-        # its final location
-        tmp_filename = self._mktemp(filename)
+        ### with open(tmp_filename, "wb") as outfile:
+        ###     for chunk in stream:
+        ###         outfile.write(chunk)
+        ###         
+        ### DID = draft['id']
+        ### base_path = self._get_draft_data_path(DID)
+        ### dst_path = base_path
 
-        with open(tmp_filename, "wb") as outfile:
-            for chunk in stream:
-                outfile.write(chunk)
-                
-        DID = draft['id']
-        base_path = self._get_draft_data_path(DID)
-        dst_path = base_path
+        ### # if the user has provided a destination path we need to honor it
+        ### if usr_path is not None:
+        ###     dst_path = os.path.join(dst_path, usr_path)
+        ###     if not os.path.exists(dst_path):
+        ###         os.makedirs(dst_path)
 
-        # if the user has provided a destination path we need to honor it
-        if usr_path is not None:
-            dst_path = os.path.join(dst_path, usr_path)
-            if not os.path.exists(dst_path):
-                os.makedirs(dst_path)
+        ### # if the user asked for the file to be unpacked, do so
+        ### if(unpack):
+        ###     self._unpack_file(tmp_filename, dst_path, overwrite)
+        ### else:
+        ###     self._move_file(tmp_filename, dst_path, overwrite)
 
-        # if the user asked for the file to be unpacked, do so
-        if(unpack):
-            self._unpack_file(tmp_filename, dst_path, overwrite)
-        else:
-            self._move_file(tmp_filename, dst_path, overwrite)
+        ### new_fps = {}
 
-        new_fps = {}
+        ### # generate and store fingerprints for all files
+        ### # XXX this should probably be multithreaded
+        ### for root, dirs, files in os.walk(dst_path):
+        ###     for filename in files:
+        ###         filepath = os.path.join(root, filename)
 
-        # generate and store fingerprints for all files
-        # XXX this should probably be multithreaded
-        for root, dirs, files in os.walk(dst_path):
-            for filename in files:
-                filepath = os.path.join(root, filename)
+        ###         relpath = os.path.relpath(filepath, base_path)
 
-                relpath = os.path.relpath(filepath, base_path)
+        ###         new_fps[relpath] = librp.get_file_fingerprints(filepath)
 
-                new_fps[relpath] = librp.get_file_fingerprints(filepath)
+        ### old_fps = self._load_draft_fingerprints(DID)
 
-        old_fps = self._load_draft_fingerprints(DID)
+        ### merged_fps = self._merge_fingerprints(old_fps, new_fps)
 
-        merged_fps = self._merge_fingerprints(old_fps, new_fps)
+        ### self._save_draft_fingerprints(DID, merged_fps)
 
-        self._save_draft_fingerprints(DID, merged_fps)
+        ### # FIXME we could be smarter with this and update only what has changed
+        ### contents = self._load_draft_contents(DID)
 
-        # FIXME we could be smarter with this and update only what has changed
-        contents = self._load_draft_contents(DID)
+        ### # add the 'contents' to the draft descriptor and 
+        ### # update it in the repository
+        ### # NOTE: 'draft' is already an entry in cached_drafts
+        ### # and we can modify it in place
+        ### draft['contents'] = contents
 
-        # add the 'contents' to the draft descriptor and 
-        # update it in the repository
-        # NOTE: 'draft' is already an entry in cached_drafts
-        # and we can modify it in place
-        draft['contents'] = contents
+        ### # also update it in the backend
+        ### self.save_draft_record(draft)
 
-        # also update it in the backend
-        self.save_draft_record(draft)
-
-        return draft#self.draft_serializer.dump(draft)
+        ### return draft#self.draft_serializer.dump(draft)
 
     def load_dataset_record(self, PID):
         """ load a dataset record from the backend """

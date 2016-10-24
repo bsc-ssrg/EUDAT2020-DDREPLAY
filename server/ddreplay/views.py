@@ -141,31 +141,16 @@ def get_draft_data(DID):
 
 add_to_draft_args = {
     'unpack' : fields.Boolean(required=False, missing=False),
-    'overwrite' : fields.Boolean(required=False, missing=False),
+    'replace' : fields.Boolean(required=False, missing=False),
 }
-
-def StreamingIterator(req_handle, buf_size=4096):
-    """ A simple streaming iterator that can be passed to the repository so
-    that files don't have to be fully read into memory before being stored in 
-    the backend.
-    """
-
-    while True:
-        chunk = req_handle.stream.read(buf_size)
-
-        if len(chunk) == 0:
-            break
-
-        yield chunk
-
 
 @app.route("/api/" + __api_version__ + "/drafts/<DID>", methods=['PUT'])
 @app.route("/api/" + __api_version__ + "/drafts/<DID>/<path:usr_path>", methods=['PUT'])
 @use_kwargs(add_to_draft_args)
-def add_to_draft(DID, unpack, overwrite, usr_path=None):
+def add_to_draft(DID, unpack, replace, usr_path=None):
     """ add data to an existing draft """
 
-    app.logger.debug("add_to_draft(DID=%s, unpack=%s, overwrite=%s, usr_path='%s')", DID, unpack, overwrite, usr_path)
+    app.logger.debug("add_to_draft(DID=%s, unpack=%s, replace=%s, usr_path='%s')", DID, unpack, replace, usr_path)
 
     repo = get_repo()
 
@@ -174,20 +159,6 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
     if(draft is None):
         app.logger.debug("DID: %s not found", DID)
         abort(404)
-
-    # with open("/home/amiranda/var/projects/eudat/dataset-replayer/server/footest.bin", "wb") as outfile:
-    #     while True:
-
-    #         chunk = request.stream.read(8192)
-
-    #         if len(chunk) == 0:
-    #             break
-
-    #         outfile.write(chunk)
-
-    #         #print(chunk)
-
-    # return json_response({}, 200)
 
     # the client should have provided a desired filename using the 
     # content-disposition HTTP header. If they didn't, 
@@ -202,7 +173,7 @@ def add_to_draft(DID, unpack, overwrite, usr_path=None):
     # in the repository as temporary data
     import shutil
     try:
-        result = repo.add_file_to_draft(draft, request.files, filename, usr_path, unpack, overwrite)
+        result = repo.add_file_to_draft(draft, request.files, filename, usr_path, unpack, replace)
     except shutil.Error: #XXX use our own exceptions
         abort(409, 'Destination path already exists')
 
