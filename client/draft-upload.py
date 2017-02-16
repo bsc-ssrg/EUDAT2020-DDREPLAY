@@ -312,6 +312,8 @@ def upload_file(repo_url, draft_id, filepath):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> <DID> <filepath>")
+    print("Uploads data to Draft <DID>, attempting to save bandwidth if possible")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <DID> - draft ID")

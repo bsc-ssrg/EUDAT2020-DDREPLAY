@@ -59,6 +59,8 @@ def publish_draft(repo_url, DID, author, message):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> <DID> <author> <message>")
+    print("Creates an immutable Dataset Version using the data associated to the Draft <DID>.")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <DID> - Draft ID")

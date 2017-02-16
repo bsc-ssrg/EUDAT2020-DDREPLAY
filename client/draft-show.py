@@ -59,6 +59,8 @@ def show_draft(repo_url, DID=None):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> [DID]")
+    print("Prints the JSON record(s) associated to the Drafts currently in the repository")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <DID> - draft ID (if unspecified, all drafts are shown)")

@@ -62,9 +62,11 @@ def show_dataset(repo_url, PID=None, VID=None):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> [PID] [VID|all]")
+    print("Prints the JSON record(s) associated to the Datasets currently in the repository")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
-    print("    <PID> - Dataset ID (if unspecified, all datasets are shown)")
+    print("    <PID> - Dataset ID (if unspecified, all Datasets are shown)")
     print("    <VID> - Version ID (if unspecified, the latest version is shown)")
 
 if __name__ == "__main__":

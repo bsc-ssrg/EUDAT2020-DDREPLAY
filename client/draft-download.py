@@ -75,6 +75,8 @@ def download_draft(repo_url, DID):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> <DID>")
+    print("Downloads the data associated to an existing Draft")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <DID> - draft ID")

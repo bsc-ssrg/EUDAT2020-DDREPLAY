@@ -56,6 +56,8 @@ def create_draft(repo_url):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL>")
+    print("Creates an empty Draft in the repository")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
 

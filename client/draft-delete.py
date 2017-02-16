@@ -58,6 +58,8 @@ def delete_draft(repo_url, DIDs):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> <DID> [<DID> ...]")
+    print("Deletes an existing Draft")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <DID> - Draft ID")

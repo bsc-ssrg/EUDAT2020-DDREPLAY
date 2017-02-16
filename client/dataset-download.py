@@ -78,10 +78,12 @@ def download_dataset(repo_url, PID, VID=None):
 
 def help():
     print("Usage:", os.path.basename(sys.argv[0]), "<URL> <PID> [VID]")
+    print("Downloads the data associated to a Dataset Version identified by PID and VID")
+    print()
     print("Arguments:")
     print("    <URL> - repository url")
     print("    <PID> - Dataset ID")
-    print("    <VID> - Version ID")
+    print("    <VID> - Version ID (if unspecified, the latest version is downloaded)")
 
 if __name__ == "__main__":
 
