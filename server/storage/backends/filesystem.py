@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #
@@ -585,7 +585,7 @@ class Filesystem:
         and ``VID``, loads it from the backend, and returns it.
         """
 
-        _, src_file = self._get_version_metadata_paths(pPID, VID)
+        _, src_file,_ = self._get_version_metadata_paths(pPID, VID)
 
         record = self._read_version_from_file(src_file)
 
@@ -606,7 +606,7 @@ class Filesystem:
 
         record_id = record['id']
 
-        _, dst_file = self._get_version_metadata_paths(pPID, record_id)
+        _, dst_file, _ = self._get_version_metadata_paths(pPID, record_id)
 
         return self._write_version_to_file(record, dst_file)
 
@@ -633,11 +633,33 @@ class Filesystem:
         stored in the repository for the dataset identified by ``PID``.
         """
 
-        src_path, _ = self._get_version_metadata_paths(PID, None)
+        src_path, _, _ = self._get_version_metadata_paths(PID, None)
 
         for f in glob.glob(os.path.join(src_path, "*.json")):
             version = self._read_version_from_file(f)
             yield version
+
+    def transfer_fingerprints_from_draft(self, DID, pPID, VID):
+        """ This function retrieves the fingerprints associated to draft ``DID``
+        and stores them in the backend, associating it to the dataset version
+        identified by ``<pPID+VID>``.
+        """
+
+        _, _, src_fps_path = self._get_draft_metadata_paths(DID)
+        _, _, dst_fps_path = self._get_version_metadata_paths(pPID, VID)
+
+        self._move_file(src_fps_path, dst_fps_path)
+
+    def transfer_fingerprints_to_draft(self, DID, pPID, VID):
+        """ This function retrieves the fingerprints associated to version 
+        ``<pPID+VID>`` and copies them to the draft ``DID``.
+        """
+
+        _, _, src_fps_path = self._get_version_metadata_paths(pPID, VID)
+        _, _, dst_fps_path = self._get_draft_metadata_paths(DID)
+
+        self._copy_file(src_fps_path, dst_fps_path)
+
 
     def transfer_data_from_draft(self, DID, pPID, VID):
         """ This function retrieves all data associated with draft ``DID``
@@ -674,6 +696,10 @@ class Filesystem:
     @staticmethod
     def _move_directory(src_path, dst_path):
         shutil.move(src_path, dst_path)
+
+    @staticmethod
+    def _copy_file(src_filename, dst_filename):
+        shutil.copy(src_filename, dst_filename)
 
     @staticmethod
     def _copy_directory(src_path, dst_path):
@@ -961,10 +987,12 @@ class Filesystem:
 
         if VID is not None:
             record_path = os.path.join(vm_path, VID + ".json")
+            fps_path = os.path.join(vm_path, VID + ".fps")
         else:
             record_path = None
+            fps_path = None
 
-        return vm_path, record_path
+        return vm_path, record_path, fps_path
 
     def _get_version_data_path(self, pPID, VID):
         """This function computes and returns the path for the base directory

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #
@@ -42,16 +42,10 @@ def show_dataset(repo_url, PID=None, VID=None):
     req_url = repo_url + "/datasets"
 
     if PID is not None:
-        req_url += "/" + PID
+        req_url += "/" + PID + "/versions/"
 
-    if VID is not None:
-        if VID != 'all':
-            req_url += "/versions/" + VID
-        else:
-            req_url += "/versions/"
-
-    if VID != "all":
-        req_url += "/record"
+        if VID is not None and VID != 'all':
+            req_url += VID + "/record"
 
     try:
         r = requests.get(req_url)
@@ -61,7 +55,7 @@ def show_dataset(repo_url, PID=None, VID=None):
         sys.exit(1)
 
     if r.status_code != 200:
-        print("Unable to list draft: HTTP Error", r.status_code)
+        print("Unable to list dataset: HTTP Error", r.status_code)
         sys.exit(1)
 
     print(r.text, end='')

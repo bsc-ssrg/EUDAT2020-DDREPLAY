@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #
@@ -99,6 +99,10 @@ class Repository:
         self._refresh_cached_drafts()
         self._refresh_cached_versions()
 
+
+    ############################################################################
+    ##### functionality for drafts begins here                             #####
+    ############################################################################
     def create_empty_draft(self, draft_contents):
         """This function creates an empty draft that is not yet associated to 
         any dataset.
@@ -117,7 +121,10 @@ class Repository:
         """
 
         # fetch the latest version published
-        current_version = self.lookup_current_version(PID)
+        current_version,_ = self.lookup_current_version(PID)
+
+        if current_version is None:
+            return None
 
         DID = self.generate_DID()
 
@@ -134,6 +141,10 @@ class Repository:
         # since we are not deduplicating data, just copy the data
         # from 'current_version' to 'new_draft'
         self.backend.transfer_data_to_draft(DID, PID, current_version['id'])
+
+        # we also need to copy the stored fingerprints from 'current_version' 
+        #(i.e. PID+current_version['id'] to 'new_draft'
+        self.backend.transfer_fingerprints_to_draft(DID, PID, current_version['id'])
 
         return result
 
@@ -245,6 +256,9 @@ class Repository:
         # the new version inherits all the data from the promoted draft
         self.backend.transfer_data_from_draft(DID, PID, VID)
 
+        # the new version inherits the fingerprints from the promoted draft
+        self.backend.transfer_fingerprints_from_draft(DID, PID, VID)
+
         # delete record for the 'old draft'
         print('removing draft', DID)
         self.delete_draft(DID, remove_data=False)
@@ -260,6 +274,9 @@ class Repository:
         # XXX dataset cache?
 
         dataset = self.backend.load_dataset_record(PID)
+
+        if dataset is None:
+            return None, None
 
         VID = dataset['current']
 
@@ -298,6 +315,12 @@ class Repository:
         #else:
         #    #return self.version_list_serializer.dump({})
         #    return {}
+
+    ############################################################################
+    ##### functionality for datasets begins here                           #####
+    ############################################################################
+    def lookup_dataset(self, PID):
+        return self.backend.load_dataset_record(PID)
 
     def list_all_datasets(self):
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #
@@ -181,6 +181,8 @@ def remote_replace(repo_url, draft_id, filepath):
         print("No differences found between local and remote files...")
         return
 
+    # XXX instead of using Python's pickle, this would be better with BSON or
+    # something similar
     metadata = _pickle.dumps(local_fps)
 
 
@@ -189,11 +191,16 @@ def remote_replace(repo_url, draft_id, filepath):
         ("fingerprints", ("filepath" + ".fps", metadata, "application/octet-stream"))
     ]
 
-    padding = digits(len(deltas))
+    # statistics
+    bytes_in_file = os.path.getsize(filepath)
+    bytes_to_transfer = 0
 
     for i, d in enumerate(deltas):
         offset = d[0]
         size = d[1]
+
+        bytes_to_transfer += size
+
         fields.append(
             ("parts",
             (filepath + ".__part_" + str(offset) + "_" + str(size) + "__",
@@ -222,12 +229,16 @@ def remote_replace(repo_url, draft_id, filepath):
         r.status_code, r.reason)
         )
 
+    print(bytes_to_transfer, "bytes transferred from a total of", bytes_in_file) 
+
 
 def remote_upload(repo_url, draft_id, filepath):
 
     req_url = repo_url + "/drafts/" + draft_id
 
     print("uploading file...")
+
+    bytes_in_file = os.path.getsize(filepath)
 
     with open(filepath, "rb") as infile:
 
@@ -248,11 +259,11 @@ def remote_upload(repo_url, draft_id, filepath):
 
         r = requests.put(req_url, headers=headers, data=monitor)
 
-        print(r.elapsed.total_seconds())
-
         print('\nUpload finished! (Returned status {0} {1})'.format(
             r.status_code, r.reason)
             )
+
+        print(bytes_in_file, "bytes transferred") 
 
 def upload_file(repo_url, draft_id, filepath):
     #print(repo_url, draft_id, filepath)

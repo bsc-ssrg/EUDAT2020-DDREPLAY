@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 ###########################################################################
-#  (C) Copyright 2016 Barcelona Supercomputing Center                     #
+#  (C) Copyright 2016-2017 Barcelona Supercomputing Center                #
 #                     Centro Nacional de Supercomputacion                 #
 #                                                                         #
 #  This file is part of the Dataset Replayer.                             #
@@ -268,6 +268,10 @@ def get_current_version_record(PID):
 
     version,_ = repo.lookup_current_version(PID)
 
+    if version is None:
+        abort(404)
+
+
     return json_response({'version' : version}, 200)
 
 @app.route("/api/" + __api_version__ + "/datasets/<PID>/", methods=['GET'])
@@ -342,7 +346,10 @@ def create_draft_from_dataset(PID):
 
     draft = repo.create_draft_from_dataset(PID)
 
-    return json_response({'draft': draft}, 200)
+    if draft is None:
+        abort(404)
+
+    return json_response({'draft': draft}, 201)
 
 
 ################################################################################
