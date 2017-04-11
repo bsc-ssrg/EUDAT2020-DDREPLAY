@@ -136,7 +136,7 @@ class Filesystem:
             if not os.path.exists(rd):
                 os.makedirs(rd)
 
-    def __init__(self, base_location):
+    def __init__(self, base_location, permanent_remove, remove_fingerprints):
         """This function creates the necessary structures in the filesystem to
         represent the repository metadta and data contents. The repository 
         organization will eventually end up as follows:
@@ -169,6 +169,8 @@ class Filesystem:
         """
 
         self.base_location = base_location
+        self.permanent_remove = permanent_remove
+        self.remove_fps = remove_fingerprints
         self.config = dict()
 
         # make sure that the base_location is used
@@ -249,12 +251,20 @@ class Filesystem:
 
         # remove metadata record
         _, src_file, _ = self._get_draft_metadata_paths(DID)
-        self._move_file(src_file, self.config['TRASH_FOLDER'])
+
+        if self.permanent_remove:
+            self._remove_file(src_file)
+        else:
+            self._move_file(src_file, self.config['TRASH_FOLDER'])
         
         if remove_data:
             # remove draft data
             src_path = self._get_draft_data_path(DID)
-            self._move_directory(src_path, self.config['TRASH_FOLDER'])
+
+            if self.permanent_remove:
+                self._remove_directory(src_path)
+            else:
+                self._move_directory(src_path, self.config['TRASH_FOLDER'])
 
 
     def load_draft_records(self):
@@ -296,10 +306,19 @@ class Filesystem:
 
         merged_fps = self._merge_fingerprints(old_fps, new_fps)
 
-        self._save_draft_fingerprints(DID, merged_fps)
+        # try to move the file to its final location (this will raise
+        # an exception if the destination already exists)
+        try:
+            self._move_file(tmp_filename, dst_path)
+        except shutil.Error as e:
+            # remove the temporary file, since the upload failed and re-raise
+            # the exception
+            self._remove_file(tmp_filename)
+            os.rmdir(tmp_dir)
+            raise Exception("Destination path already exists")
 
-        # move the file to its final location
-        self._move_file(tmp_filename, dst_path)
+        # if the move succeeded, store the fingerprints
+        self._save_draft_fingerprints(DID, merged_fps)
 
         # FIXME we could be smarter with this and update only what has changed
         contents = self._load_draft_contents(DID)
@@ -421,11 +440,9 @@ class Filesystem:
             dst_path = os.path.join(dst_path, usr_path)
 
         orig_filepath = os.path.join(dst_path, filename)
-        print(orig_filepath)
 
         if not os.path.exists(orig_filepath):
-            # XXX: nothing to do. Raise exception?
-            return
+            raise Exception("Replacement target does not exist")
 
         # create a temporary directory to rebuild the file
         tmp_dir = tempfile.mkdtemp(dir=self.config['TMP_FOLDER'])
@@ -639,6 +656,19 @@ class Filesystem:
             version = self._read_version_from_file(f)
             yield version
 
+    def remove_fingerprints_from_version(self, PID, VID):
+        """ This function removes the fingerprints associated to the version
+        identified by ``PID`` and ``VID``.
+        """
+        _, _, src_fps_path = self._get_version_metadata_paths(PID, VID)
+
+        if self.remove_fps:
+            if self.permanent_remove:
+                self._remove_file(src_fps_path)
+            else:
+                self._move_file(src_fps_path, self.config['TRASH_FOLDER'])
+
+
     def transfer_fingerprints_from_draft(self, DID, pPID, VID):
         """ This function retrieves the fingerprints associated to draft ``DID``
         and stores them in the backend, associating it to the dataset version
@@ -694,8 +724,16 @@ class Filesystem:
             shutil.copy(src_filename, dst_filename)
 
     @staticmethod
+    def _remove_file(filename):
+        os.remove(filename)
+
+    @staticmethod
     def _move_directory(src_path, dst_path):
         shutil.move(src_path, dst_path)
+
+    @staticmethod
+    def _remove_directory(directory):
+        shutil.rmtree(directory)
 
     @staticmethod
     def _copy_file(src_filename, dst_filename):

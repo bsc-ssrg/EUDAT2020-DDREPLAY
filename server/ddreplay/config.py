@@ -36,6 +36,8 @@ class BaseConfig(object):
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
     DD_REPOSITORY_BASE = 'test_repo'
+    DD_REMOVE_OLD_METADATA = True
+    DD_REMOVE_OLD_FINGERPRINTS = True
 
 class TestingConfig(BaseConfig):
     DEBUG = True

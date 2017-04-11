@@ -260,8 +260,15 @@ class Repository:
         self.backend.transfer_fingerprints_from_draft(DID, PID, VID)
 
         # delete record for the 'old draft'
-        print('removing draft', DID)
+        #print('removing draft', DID)
         self.delete_draft(DID, remove_data=False)
+
+        # remove the old fingerprints associated to the parent version
+        # if the user instructed the repository to do so
+        if parent_version is not None:
+            self.backend.remove_fingerprints_from_version(PID, parent_version)
+
+
 
         # update caches
         # XXX

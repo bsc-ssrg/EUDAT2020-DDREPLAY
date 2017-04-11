@@ -147,7 +147,7 @@ class FileView:
         return data
 
 
-def remote_replace(repo_url, draft_id, filepath):
+def remote_replace(repo_url, draft_id, local_filepath, repo_filepath):
     # step 1. get the dataset's fingerprints from the server
     req_url = repo_url + "/drafts/" + draft_id + "/fingerprints"
 
@@ -169,13 +169,13 @@ def remote_replace(repo_url, draft_id, filepath):
 
     server_fps = _pickle.loads(stream)
 
-    # step 2. compute the filepath's fingerprints
+    # step 2. compute the local_filepath's fingerprints
     print("    Computing fingerprints for local copy...")
-    local_fps = librp.get_file_fingerprints(filepath)
+    local_fps = librp.get_file_fingerprints(local_filepath)
 
     # step 3. compare the fingerprints for differences
     print("    Comparing fingerprints and computing deltas...")
-    deltas = find_deltas(local_fps, server_fps[filepath])
+    deltas = find_deltas(local_fps, server_fps[repo_filepath])
 
     if len(deltas) == 0:
         print("No differences found between local and remote files...")
@@ -187,12 +187,13 @@ def remote_replace(repo_url, draft_id, filepath):
 
 
     # step 4. upload differing fragments from the local file
+    print("    Uploading deltas...")
     fields = [
-        ("fingerprints", ("filepath" + ".fps", metadata, "application/octet-stream"))
+        ("fingerprints", (repo_filepath + ".fps", metadata, "application/octet-stream"))
     ]
 
     # statistics
-    bytes_in_file = os.path.getsize(filepath)
+    bytes_in_file = os.path.getsize(local_filepath)
     bytes_to_transfer = 0
 
     for i, d in enumerate(deltas):
@@ -203,8 +204,8 @@ def remote_replace(repo_url, draft_id, filepath):
 
         fields.append(
             ("parts",
-            (filepath + ".__part_" + str(offset) + "_" + str(size) + "__",
-            FileView(filepath, offset, size),
+            (local_filepath + ".__part_" + str(offset) + "_" + str(size) + "__",
+            FileView(local_filepath, offset, size),
             "application/octet-stream"
             ))
         )
@@ -220,32 +221,33 @@ def remote_replace(repo_url, draft_id, filepath):
     # the user-provided filename is passed using the content-disposition
     # HTTP header
     headers = {"Content-Type": multipart_data.content_type,
-                "content-disposition": "attachment; filename=" + filepath}
+                "content-disposition": "attachment; filename=" + repo_filepath}
 
     req_url = repo_url + "/drafts/" + draft_id + "?replace=true"
     r = requests.put(req_url, headers=headers, data=monitor)
 
-    print('\nUpload finished! (Returned status {0} {1})'.format(
-        r.status_code, r.reason)
-        )
+    if r.status_code != 200:
+        print('\nUpload failed! (Returned status {0} {1})'.format(
+            r.status_code, r.reason))
+        print(r.text)
+    else:
+        print('\nUpload finished! (Returned status {0} {1})'.format(
+            r.status_code, r.reason))
+        print(bytes_to_transfer, "bytes transferred from a total of", bytes_in_file) 
 
-    print(bytes_to_transfer, "bytes transferred from a total of", bytes_in_file) 
 
-
-def remote_upload(repo_url, draft_id, filepath):
+def remote_upload(repo_url, draft_id, local_filepath, repo_filepath):
 
     req_url = repo_url + "/drafts/" + draft_id
 
     print("uploading file...")
 
-    bytes_in_file = os.path.getsize(filepath)
+    bytes_in_file = os.path.getsize(local_filepath)
 
-    with open(filepath, "rb") as infile:
-
-        filename = os.path.basename(filepath)
+    with open(local_filepath, "rb") as infile:
 
         multipart_data = MultipartEncoder(
-                fields = {"file": (filename, infile, "application/octet-stream")
+                fields = {"file": (repo_filepath, infile, "application/octet-stream")
         })
 
         callback = create_callback(multipart_data)
@@ -255,7 +257,7 @@ def remote_upload(repo_url, draft_id, filepath):
         # the user-provided filename is passed using the content-disposition
         # HTTP header
         headers = {"Content-Type": multipart_data.content_type,
-                   "content-disposition": "attachment; filename=" + filename}
+                   "content-disposition": "attachment; filename=" + repo_filepath}
 
         r = requests.put(req_url, headers=headers, data=monitor)
 
@@ -265,12 +267,12 @@ def remote_upload(repo_url, draft_id, filepath):
 
         print(bytes_in_file, "bytes transferred") 
 
-def upload_file(repo_url, draft_id, filepath):
+def upload_file(repo_url, draft_id, local_filepath):
     #print(repo_url, draft_id, filepath)
 
     print("Uploading file to remote repository:")
     print("    repository:", repo_url)
-    print("    filepath:", filepath)
+    print("    filepath:", local_filepath)
     print("    draft:", draft_id)
 
     if "http" not in repo_url:
@@ -300,12 +302,16 @@ def upload_file(repo_url, draft_id, filepath):
 
     draft = tmp["draft"]
 
-    if not file_exists(draft["contents"], filepath):
-        print("File '" + filepath + "' not found in server... uploading")
-        remote_upload(repo_url, draft_id, filepath)
+    # XXX since the repository doesn't support hierarchical paths (yet), we
+    # need to remove any leading folder information from the filename
+    repo_filepath = os.path.basename(local_filepath)
+
+    if not file_exists(draft["contents"], repo_filepath):
+        print("File '" + repo_filepath + "' not found in server... uploading")
+        remote_upload(repo_url, draft_id, local_filepath, repo_filepath)
     else:
-        print("File '" + filepath + "' found in server... replacing")
-        remote_replace(repo_url, draft_id, filepath)
+        print("File '" + repo_filepath + "' found in server... replacing")
+        remote_replace(repo_url, draft_id, local_filepath, repo_filepath)
 
 
     sys.exit(0)

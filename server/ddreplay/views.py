@@ -174,8 +174,8 @@ def add_to_draft(DID, unpack, replace, usr_path=None):
     import shutil
     try:
         result = repo.add_file_to_draft(draft, request.files, filename, usr_path, unpack, replace)
-    except shutil.Error: #XXX use our own exceptions
-        abort(409, 'Destination path already exists')
+    except Exception as e:
+        abort(409, str(e))
 
     return json_response({'draft': result}, 200)
 

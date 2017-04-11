@@ -49,7 +49,17 @@ if 'DD_REPOSITORY_BASE' in app.config:
         abspath = os.path.join(os.getcwd(), relpath)
         app.config['DD_REPOSITORY_BASE'] = abspath
 
-    repo = Repository(backend='filesystem', base_location=app.config['DD_REPOSITORY_BASE'])
+    if 'DD_REMOVE_OLD_METADATA' in app.config:
+        permanent_remove = app.config['DD_REMOVE_OLD_METADATA']
+    else:
+        permanent_remove = False
+
+    if 'DD_REMOVE_OLD_FINGERPRINTS' in app.config:
+        remove_fps = app.config['DD_REMOVE_OLD_FINGERPRINTS']
+    else:
+        remove_fps = False
+
+    repo = Repository(backend='filesystem', base_location=app.config['DD_REPOSITORY_BASE'], permanent_remove=permanent_remove, remove_fingerprints=remove_fps)
 else:
     repo = None
 
